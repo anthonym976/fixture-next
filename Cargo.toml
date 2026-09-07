@@ -1,0 +1,8 @@
+[package]
+name = "fixture-next"
+version = "0.1.0"
+edition = "2021"
+description = "Finds a team's next fixture from a plain text schedule file."
+license = "MIT"
+
+[dependencies]
