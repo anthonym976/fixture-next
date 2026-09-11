@@ -2,7 +2,7 @@ use std::env;
 use std::fs;
 use std::process;
 
-use fixture_next::{next_fixture, parse_fixtures, Date};
+use fixture_next::{last_fixture, next_fixture, parse_fixtures, Date};
 
 fn main() {
     let args: Vec<String> = env::args().collect();
@@ -10,6 +10,7 @@ fn main() {
     let mut file_path: Option<String> = None;
     let mut team: Option<String> = None;
     let mut on: Option<String> = None;
+    let mut last = false;
 
     let mut i = 1;
     while i < args.len() {
@@ -25,6 +26,9 @@ fn main() {
             "--on" => {
                 i += 1;
                 on = args.get(i).cloned();
+            }
+            "--last" => {
+                last = true;
             }
             "--help" | "-h" => {
                 print_usage();
@@ -68,7 +72,13 @@ fn main() {
         process::exit(1);
     });
 
-    match next_fixture(&fixtures, &team, reference_date) {
+    let found = if last {
+        last_fixture(&fixtures, &team, reference_date)
+    } else {
+        next_fixture(&fixtures, &team, reference_date)
+    };
+
+    match found {
         Some(fixture) => {
             print!("{} {} vs {}", fixture.date, fixture.home, fixture.away);
             if let Some(c) = &fixture.competition {
@@ -77,12 +87,15 @@ fn main() {
             println!();
         }
         None => {
-            println!("no upcoming fixture found for {}", team);
+            let kind = if last { "past" } else { "upcoming" };
+            println!("no {} fixture found for {}", kind, team);
             process::exit(1);
         }
     }
 }
 
 fn print_usage() {
-    eprintln!("usage: fixture-next --file <fixtures.txt> --team <name> [--on YYYY-MM-DD]");
+    eprintln!(
+        "usage: fixture-next --file <fixtures.txt> --team <name> [--on YYYY-MM-DD] [--last]"
+    );
 }

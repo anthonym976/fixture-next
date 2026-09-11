@@ -101,3 +101,21 @@ pub fn next_fixture<'a>(
             _ => Some(candidate),
         })
 }
+
+/// Finds the most recent fixture involving `team` strictly before `before`.
+///
+/// A fixture dated `before` itself is not considered past yet (it has not
+/// necessarily kicked off), so the comparison is exclusive on that end;
+/// this is the mirror image of `next_fixture`'s inclusive lower bound. Ties
+/// on the same date are broken the same way as `next_fixture`: the fixture
+/// appearing first in `fixtures` wins.
+pub fn last_fixture<'a>(fixtures: &'a [Fixture], team: &str, before: Date) -> Option<&'a Fixture> {
+    let team = team.trim();
+    fixtures
+        .iter()
+        .filter(|f| f.date < before && team_matches(f, team))
+        .fold(None, |best: Option<&Fixture>, candidate| match best {
+            Some(b) if b.date >= candidate.date => Some(b),
+            _ => Some(candidate),
+        })
+}

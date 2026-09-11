@@ -58,6 +58,18 @@ $ fixture-next --file data/fixtures.example.txt --team Sunderland
 no upcoming fixture found for Sunderland
 ```
 
+Pass `--last` to look backwards instead: the most recent fixture strictly
+before the reference date. A fixture dated exactly on the reference date
+doesn't count as past yet, since it may not have kicked off:
+
+```
+fixture-next --file data/fixtures.example.txt --team Arsenal --on 2026-09-13 --last
+```
+
+```
+2026-09-12 Arsenal vs Chelsea (Premier League)
+```
+
 ## Building and testing
 
 Standard `cargo build` / `cargo test`, no third-party dependencies. The
@@ -69,5 +81,5 @@ malformed fixture lines.
 
 ## Status
 
-Early skeleton. Next up: a `--last` flag for the most recent past fixture,
-and reading fixtures from stdin so this composes with other tools.
+Early skeleton. Next up: reading fixtures from stdin so this composes
+with other tools.

@@ -1,4 +1,4 @@
-use fixture_next::{next_fixture, parse_fixtures, Date};
+use fixture_next::{last_fixture, next_fixture, parse_fixtures, Date};
 
 const SAMPLE: &str = "\
 # 2026 fixtures used by the next_fixture table tests
@@ -100,6 +100,79 @@ fn next_fixture_breaks_ties_by_file_order() {
     let on = Date::parse("2026-09-01").unwrap();
 
     let got = next_fixture(&fixtures, "Arsenal", on).expect("should find a fixture");
+    assert_eq!(got.competition.as_deref(), Some("League Cup"));
+}
+
+#[test]
+fn last_fixture_table() {
+    let fixtures = parse_fixtures(SAMPLE).expect("sample fixtures should parse");
+
+    let cases = [
+        Case {
+            name: "returns the most recent past fixture for the team",
+            team: "Arsenal",
+            on: "2026-09-20",
+            want: Some(("2026-09-12", "Arsenal", "Chelsea")),
+        },
+        Case {
+            name: "team matching is case-insensitive",
+            team: "ARSENAL",
+            on: "2026-09-13",
+            want: Some(("2026-09-12", "Arsenal", "Chelsea")),
+        },
+        Case {
+            name: "a fixture dated exactly the reference date is not past yet",
+            team: "Arsenal",
+            on: "2026-09-12",
+            want: Some(("2026-09-05", "Arsenal", "Leeds")),
+        },
+        Case {
+            name: "a team is found when it played away",
+            team: "arsenal",
+            on: "2026-09-21",
+            want: Some(("2026-09-20", "arsenal", "Newcastle")),
+        },
+        Case {
+            name: "team names must match in full, not as a substring",
+            team: "Arsenal U21",
+            on: "2026-09-14",
+            want: Some(("2026-09-13", "Arsenal U21", "Chelsea U21")),
+        },
+        Case {
+            name: "no fixture before the reference date yields none",
+            team: "Arsenal",
+            on: "2026-09-05",
+            want: None,
+        },
+        Case {
+            name: "a team that never appears yields none",
+            team: "Sunderland",
+            on: "2026-12-31",
+            want: None,
+        },
+    ];
+
+    for case in cases {
+        let on = Date::parse(case.on).expect("case reference date should parse");
+        let got = last_fixture(&fixtures, case.team, on)
+            .map(|f| (f.date.to_string(), f.home.clone(), f.away.clone()));
+        let want = case
+            .want
+            .map(|(d, h, a)| (d.to_string(), h.to_string(), a.to_string()));
+        assert_eq!(got, want, "case '{}' failed", case.name);
+    }
+}
+
+#[test]
+fn last_fixture_breaks_ties_by_file_order() {
+    let data = "\
+2026-09-12|Arsenal|Chelsea|League Cup
+2026-09-12|Arsenal|Chelsea|Community Shield
+";
+    let fixtures = parse_fixtures(data).expect("fixtures should parse");
+    let before = Date::parse("2026-09-13").unwrap();
+
+    let got = last_fixture(&fixtures, "Arsenal", before).expect("should find a fixture");
     assert_eq!(got.competition.as_deref(), Some("League Cup"));
 }
 
