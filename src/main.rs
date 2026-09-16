@@ -1,5 +1,6 @@
 use std::env;
 use std::fs;
+use std::io::Read;
 use std::process;
 
 use fixture_next::{last_fixture, next_fixture, parse_fixtures, Date};
@@ -43,11 +44,6 @@ fn main() {
         i += 1;
     }
 
-    let file_path = file_path.unwrap_or_else(|| {
-        eprintln!("missing required --file <path>");
-        print_usage();
-        process::exit(2);
-    });
     let team = team.unwrap_or_else(|| {
         eprintln!("missing required --team <name>");
         print_usage();
@@ -62,13 +58,25 @@ fn main() {
         None => Date::today(),
     };
 
-    let contents = fs::read_to_string(&file_path).unwrap_or_else(|e| {
-        eprintln!("could not read {}: {}", file_path, e);
-        process::exit(1);
-    });
+    // No --file, or "-", means read the fixture list from stdin instead of
+    // a named file, so this composes with whatever produced the list.
+    let source = file_path.as_deref().unwrap_or("-");
+    let contents = if source == "-" {
+        let mut buf = String::new();
+        std::io::stdin().read_to_string(&mut buf).unwrap_or_else(|e| {
+            eprintln!("could not read stdin: {}", e);
+            process::exit(1);
+        });
+        buf
+    } else {
+        fs::read_to_string(source).unwrap_or_else(|e| {
+            eprintln!("could not read {}: {}", source, e);
+            process::exit(1);
+        })
+    };
 
     let fixtures = parse_fixtures(&contents).unwrap_or_else(|e| {
-        eprintln!("{}: {}", file_path, e);
+        eprintln!("{}: {}", source, e);
         process::exit(1);
     });
 
@@ -96,6 +104,8 @@ fn main() {
 
 fn print_usage() {
     eprintln!(
-        "usage: fixture-next --file <fixtures.txt> --team <name> [--on YYYY-MM-DD] [--last]"
+        "usage: fixture-next [--file <fixtures.txt>|-] --team <name> [--on YYYY-MM-DD] [--last]\n\
+         \n\
+         If --file is omitted, or given as \"-\", fixtures are read from stdin."
     );
 }

@@ -70,6 +70,16 @@ fixture-next --file data/fixtures.example.txt --team Arsenal --on 2026-09-13 --l
 2026-09-12 Arsenal vs Chelsea (Premier League)
 ```
 
+## Reading from stdin
+
+Omit `--file`, or pass `--file -`, to read the fixture list from stdin
+instead of a file. This lets `fixture-next` compose with whatever produces
+the list:
+
+```
+cat data/fixtures.example.txt | fixture-next --team Arsenal
+```
+
 ## Building and testing
 
 Standard `cargo build` / `cargo test`, no third-party dependencies. The
@@ -81,5 +91,4 @@ malformed fixture lines.
 
 ## Status
 
-Early skeleton. Next up: reading fixtures from stdin so this composes
-with other tools.
+Early skeleton. Next up: CSV format support alongside pipe-delimited.
