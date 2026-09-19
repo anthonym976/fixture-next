@@ -260,3 +260,41 @@ fn parse_fixtures_table() {
         }
     }
 }
+
+#[test]
+fn parse_fixtures_accepts_csv() {
+    let input = "\
+# comment lines are skipped in CSV too
+2026-09-12,Arsenal,Chelsea,Premier League
+2026-09-20,Arsenal,Newcastle
+";
+    let fixtures = parse_fixtures(input).expect("CSV fixtures should parse");
+    assert_eq!(fixtures.len(), 2);
+    assert_eq!(fixtures[0].home, "Arsenal");
+    assert_eq!(fixtures[0].away, "Chelsea");
+    assert_eq!(fixtures[0].competition.as_deref(), Some("Premier League"));
+    assert_eq!(fixtures[1].competition, None);
+}
+
+#[test]
+fn parse_fixtures_accepts_quoted_csv_field_with_comma() {
+    let input = r#"2026-09-27,Everton,Arsenal,"Premier League, rearranged""#;
+    let fixtures = parse_fixtures(input).expect("quoted CSV field should parse");
+    assert_eq!(fixtures.len(), 1);
+    assert_eq!(
+        fixtures[0].competition.as_deref(),
+        Some("Premier League, rearranged")
+    );
+}
+
+#[test]
+fn parse_fixtures_mixed_delimiters_per_line() {
+    let input = "\
+2026-09-12|Arsenal|Chelsea|Premier League
+2026-09-20,Arsenal,Newcastle,Premier League
+";
+    let fixtures = parse_fixtures(input).expect("mixed-delimiter input should parse");
+    assert_eq!(fixtures.len(), 2);
+    assert_eq!(fixtures[0].away, "Chelsea");
+    assert_eq!(fixtures[1].away, "Newcastle");
+}

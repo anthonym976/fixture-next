@@ -6,14 +6,20 @@ does this team play next? Spreadsheets make that a five-click chore.
 
 ## Fixture file format
 
-Plain text, one fixture per line, pipe-delimited:
+Plain text, one fixture per line, either pipe-delimited or CSV:
 
 ```
 YYYY-MM-DD|Home Team|Away Team[|Competition]
+YYYY-MM-DD,Home Team,Away Team[,Competition]
 ```
 
-Blank lines and lines starting with `#` are ignored. The competition field
-is optional. See `data/fixtures.example.txt` for a working example:
+The delimiter is picked per line: a line containing `|` is read as
+pipe-delimited, otherwise it's read as CSV. A CSV competition field can
+contain a comma if it's wrapped in double quotes, e.g.
+`"Premier League, rearranged"`. Blank lines and lines starting with `#` are
+ignored, and the competition field is optional. See
+`data/fixtures.example.txt` and `data/fixtures.example.csv` for working
+examples:
 
 ```
 # Example fixture list for fixture-next.
@@ -91,4 +97,4 @@ malformed fixture lines.
 
 ## Status
 
-Early skeleton. Next up: CSV format support alongside pipe-delimited.
+Early skeleton. Next up: handling postponed or cancelled fixture status.

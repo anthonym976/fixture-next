@@ -1,0 +1,8 @@
+# Example fixture list for fixture-next, CSV format.
+# Format: YYYY-MM-DD,Home Team,Away Team[,Competition]
+2026-09-12,Arsenal,Chelsea,Premier League
+2026-09-12,Leeds,Fulham,Premier League
+2026-09-13,Arsenal U21,Chelsea U21,PL2
+2026-09-05,Arsenal,Leeds,Premier League
+2026-09-20,Arsenal,Newcastle,Premier League
+2026-09-27,Everton,Arsenal,"Premier League, rearranged"
