@@ -1,4 +1,4 @@
-use fixture_next::{last_fixture, next_fixture, parse_fixtures, Date};
+use fixture_next::{last_fixture, next_fixture, parse_fixtures, Date, FixtureStatus};
 
 const SAMPLE: &str = "\
 # 2026 fixtures used by the next_fixture table tests
@@ -176,6 +176,63 @@ fn last_fixture_breaks_ties_by_file_order() {
     assert_eq!(got.competition.as_deref(), Some("League Cup"));
 }
 
+#[test]
+fn next_fixture_skips_postponed_and_cancelled() {
+    let data = "\
+2026-09-12|Arsenal|Chelsea|Premier League|postponed
+2026-09-15|Arsenal|Fulham|Premier League|cancelled
+2026-09-20|Arsenal|Newcastle|Premier League
+";
+    let fixtures = parse_fixtures(data).expect("fixtures should parse");
+    let on = Date::parse("2026-09-01").unwrap();
+
+    let got = next_fixture(&fixtures, "Arsenal", on).expect("should skip to the scheduled game");
+    assert_eq!(got.date.to_string(), "2026-09-20");
+    assert_eq!(got.away, "Newcastle");
+}
+
+#[test]
+fn last_fixture_skips_postponed_and_cancelled() {
+    let data = "\
+2026-09-05|Arsenal|Leeds|Premier League
+2026-09-12|Arsenal|Chelsea|Premier League|postponed
+2026-09-15|Arsenal|Fulham|Premier League|cancelled
+";
+    let fixtures = parse_fixtures(data).expect("fixtures should parse");
+    let before = Date::parse("2026-09-20").unwrap();
+
+    let got = last_fixture(&fixtures, "Arsenal", before).expect("should skip back to the played game");
+    assert_eq!(got.date.to_string(), "2026-09-05");
+    assert_eq!(got.away, "Leeds");
+}
+
+#[test]
+fn parse_fixtures_status_field_is_case_insensitive_with_aliases() {
+    let data = "\
+2026-09-12|Arsenal|Chelsea|Premier League|POSTPONED
+2026-09-13|Arsenal|Leeds|Premier League|PPD
+2026-09-14|Arsenal|Fulham|Premier League|Canceled
+";
+    let fixtures = parse_fixtures(data).expect("aliased statuses should parse");
+    assert_eq!(fixtures[0].status, FixtureStatus::Postponed);
+    assert_eq!(fixtures[1].status, FixtureStatus::Postponed);
+    assert_eq!(fixtures[2].status, FixtureStatus::Cancelled);
+}
+
+#[test]
+fn parse_fixtures_empty_competition_with_status() {
+    let fixtures = parse_fixtures("2026-09-12|Arsenal|Chelsea||postponed")
+        .expect("empty competition with a status should parse");
+    assert_eq!(fixtures[0].competition, None);
+    assert_eq!(fixtures[0].status, FixtureStatus::Postponed);
+}
+
+#[test]
+fn parse_fixtures_rejects_unknown_status() {
+    let result = parse_fixtures("2026-09-12|Arsenal|Chelsea|Premier League|delayed");
+    assert!(result.is_err());
+}
+
 struct ParseCase {
     name: &'static str,
     input: &'static str,
@@ -212,7 +269,7 @@ fn parse_fixtures_table() {
         },
         ParseCase {
             name: "too many fields is an error",
-            input: "2026-09-12|Arsenal|Chelsea|League|Extra",
+            input: "2026-09-12|Arsenal|Chelsea|League|scheduled|Extra",
             want_ok: false,
             want_count: 0,
         },

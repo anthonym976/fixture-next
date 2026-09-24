@@ -4,12 +4,42 @@ pub use date::Date;
 
 use std::fmt;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FixtureStatus {
+    Scheduled,
+    Postponed,
+    Cancelled,
+}
+
+impl FixtureStatus {
+    fn parse(s: &str) -> Result<FixtureStatus, String> {
+        match s.to_ascii_lowercase().as_str() {
+            "" | "scheduled" => Ok(FixtureStatus::Scheduled),
+            "postponed" | "ppd" => Ok(FixtureStatus::Postponed),
+            "cancelled" | "canceled" => Ok(FixtureStatus::Cancelled),
+            other => Err(format!("unknown fixture status '{}'", other)),
+        }
+    }
+}
+
+impl fmt::Display for FixtureStatus {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let s = match self {
+            FixtureStatus::Scheduled => "scheduled",
+            FixtureStatus::Postponed => "postponed",
+            FixtureStatus::Cancelled => "cancelled",
+        };
+        write!(f, "{}", s)
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Fixture {
     pub date: Date,
     pub home: String,
     pub away: String,
     pub competition: Option<String>,
+    pub status: FixtureStatus,
 }
 
 #[derive(Debug)]
@@ -28,14 +58,19 @@ impl std::error::Error for ParseError {}
 
 /// Parses either the pipe-delimited or CSV fixture format:
 ///
-///   YYYY-MM-DD|Home Team|Away Team[|Competition]
-///   YYYY-MM-DD,Home Team,Away Team[,Competition]
+///   YYYY-MM-DD|Home Team|Away Team[|Competition[|Status]]
+///   YYYY-MM-DD,Home Team,Away Team[,Competition[,Status]]
 ///
 /// The delimiter is sniffed per line: a line containing '|' is treated as
 /// pipe-delimited, otherwise it's parsed as CSV (with support for
 /// double-quoted fields, so a competition name can contain a comma). Blank
 /// lines and lines starting with '#' are ignored. Whitespace around each
 /// unquoted field is trimmed.
+///
+/// Status is one of "scheduled" (the default when the field is omitted or
+/// empty), "postponed", or "cancelled" ("ppd" and "canceled" are accepted as
+/// aliases). To give a status without a competition, leave the competition
+/// field empty: `2026-09-12|Arsenal|Chelsea||postponed`.
 pub fn parse_fixtures(input: &str) -> Result<Vec<Fixture>, ParseError> {
     let mut fixtures = Vec::new();
     for (i, raw_line) in input.lines().enumerate() {
@@ -45,10 +80,10 @@ pub fn parse_fixtures(input: &str) -> Result<Vec<Fixture>, ParseError> {
         }
 
         let fields = split_fields(line);
-        if fields.len() < 3 || fields.len() > 4 {
+        if fields.len() < 3 || fields.len() > 5 {
             return Err(ParseError {
                 line: i + 1,
-                message: format!("expected 3 or 4 fields, got {}", fields.len()),
+                message: format!("expected 3 to 5 fields, got {}", fields.len()),
             });
         }
 
@@ -67,12 +102,20 @@ pub fn parse_fixtures(input: &str) -> Result<Vec<Fixture>, ParseError> {
         }
 
         let competition = fields.get(3).filter(|s| !s.is_empty()).cloned();
+        let status = match fields.get(4) {
+            Some(s) => FixtureStatus::parse(s).map_err(|message| ParseError {
+                line: i + 1,
+                message,
+            })?,
+            None => FixtureStatus::Scheduled,
+        };
 
         fixtures.push(Fixture {
             date,
             home,
             away,
             competition,
+            status,
         });
     }
     Ok(fixtures)
@@ -139,7 +182,9 @@ fn team_matches(fixture: &Fixture, team: &str) -> bool {
 /// Team names are matched case-insensitively but must match in full, so
 /// "Arsenal" never matches a fixture listing "Arsenal U21". When two
 /// qualifying fixtures share the same date, the one appearing first in
-/// `fixtures` is returned.
+/// `fixtures` is returned. Postponed and cancelled fixtures are skipped:
+/// a postponed one no longer has a reliable date and a cancelled one is
+/// never going to happen, so neither is a sensible answer to "what's next".
 pub fn next_fixture<'a>(
     fixtures: &'a [Fixture],
     team: &str,
@@ -148,7 +193,9 @@ pub fn next_fixture<'a>(
     let team = team.trim();
     fixtures
         .iter()
-        .filter(|f| f.date >= on_or_after && team_matches(f, team))
+        .filter(|f| {
+            f.status == FixtureStatus::Scheduled && f.date >= on_or_after && team_matches(f, team)
+        })
         .fold(None, |best: Option<&Fixture>, candidate| match best {
             Some(b) if b.date <= candidate.date => Some(b),
             _ => Some(candidate),
@@ -161,12 +208,16 @@ pub fn next_fixture<'a>(
 /// necessarily kicked off), so the comparison is exclusive on that end;
 /// this is the mirror image of `next_fixture`'s inclusive lower bound. Ties
 /// on the same date are broken the same way as `next_fixture`: the fixture
-/// appearing first in `fixtures` wins.
+/// appearing first in `fixtures` wins. Postponed and cancelled fixtures are
+/// skipped for the same reason as in `next_fixture`: neither was actually
+/// played, so neither counts as the team's last game.
 pub fn last_fixture<'a>(fixtures: &'a [Fixture], team: &str, before: Date) -> Option<&'a Fixture> {
     let team = team.trim();
     fixtures
         .iter()
-        .filter(|f| f.date < before && team_matches(f, team))
+        .filter(|f| {
+            f.status == FixtureStatus::Scheduled && f.date < before && team_matches(f, team)
+        })
         .fold(None, |best: Option<&Fixture>, candidate| match best {
             Some(b) if b.date >= candidate.date => Some(b),
             _ => Some(candidate),

@@ -9,15 +9,15 @@ does this team play next? Spreadsheets make that a five-click chore.
 Plain text, one fixture per line, either pipe-delimited or CSV:
 
 ```
-YYYY-MM-DD|Home Team|Away Team[|Competition]
-YYYY-MM-DD,Home Team,Away Team[,Competition]
+YYYY-MM-DD|Home Team|Away Team[|Competition[|Status]]
+YYYY-MM-DD,Home Team,Away Team[,Competition[,Status]]
 ```
 
 The delimiter is picked per line: a line containing `|` is read as
 pipe-delimited, otherwise it's read as CSV. A CSV competition field can
 contain a comma if it's wrapped in double quotes, e.g.
 `"Premier League, rearranged"`. Blank lines and lines starting with `#` are
-ignored, and the competition field is optional. See
+ignored, and the competition and status fields are optional. See
 `data/fixtures.example.txt` and `data/fixtures.example.csv` for working
 examples:
 
@@ -29,6 +29,17 @@ examples:
 2026-09-05|Arsenal|Leeds|Premier League
 2026-09-20|Arsenal|Newcastle|Premier League
 2026-09-27|Everton|Arsenal|Premier League
+```
+
+Status is one of `scheduled` (the default when the field is left out or
+empty), `postponed`, or `cancelled` (`ppd` and `canceled` are accepted as
+aliases, and matching is case-insensitive). Postponed and cancelled fixtures
+are skipped by both lookups below: a postponed game no longer has a
+reliable date, and a cancelled one never happens. To give a status without
+a competition, leave the competition field empty:
+
+```
+2026-09-12|Arsenal|Chelsea||postponed
 ```
 
 ## Usage
@@ -92,9 +103,10 @@ Standard `cargo build` / `cargo test`, no third-party dependencies. The
 core logic lives in `src/lib.rs` and `src/date.rs`; `tests/table_tests.rs`
 is a table-driven suite covering the fiddly cases: case-insensitive team
 names, exact-match vs. substring ("Arsenal" vs. "Arsenal U21"), a team
-playing away rather than at home, tied dates, leap-day fixtures, and
-malformed fixture lines.
+playing away rather than at home, tied dates, leap-day fixtures, postponed
+and cancelled fixtures, and malformed fixture lines.
 
 ## Status
 
-Early skeleton. Next up: handling postponed or cancelled fixture status.
+Early skeleton. Next up: querying by date range instead of a single next
+fixture.
